@@ -102,7 +102,7 @@
     .color-label { display: flex; align-items: center; gap: 10px; font-size: 15px; }
     .color-dot {
       width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0;
-      border: 1px solid rgba(255,255,255,0.15);
+      border: 1px solid rgba(0,0,0,0.18);
     }
     .qty-ctrl { display: flex; align-items: center; gap: 0; }
     .qty-btn {
@@ -150,7 +150,7 @@
       padding: 3px 9px; border-radius: 6px; background: var(--card);
       border: 1px solid var(--border); font-size: 12px;
     }
-    .chip .dot { width: 9px; height: 9px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.2); }
+    .chip .dot { width: 9px; height: 9px; border-radius: 50%; border: 1px solid rgba(0,0,0,0.18); }
     .cart-item-note { font-size: 12px; color: var(--muted); margin-top: 4px; }
     .cart-item-photo img { max-height: 90px; border-radius: 8px; margin-top: 6px; border: 1px solid var(--border); }
     .remove-x {
@@ -253,7 +253,7 @@
     }
     .color-label-cell .cdot {
       width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0;
-      border: 1px solid rgba(255,255,255,0.2);
+      border: 1px solid rgba(0,0,0,0.18);
     }
     .color-label-cell input {
       background: transparent; border: none; padding: 0;
@@ -771,7 +771,7 @@
         <span class="chip"><span class="dot" style="background:${COLOR_HEX[c.color]};"></span>${c.color} ×${c.qty}</span>
       `).join('');
       const title = item.type === 'link'
-        ? `<a href="${esc(item.link)}" target="_blank">${esc(item.link)}</a>`
+        ? `<a href="${esc(safeHref(item.link))}" target="_blank">${esc(item.link)}</a>`
         : `📷 תמונה (תישלח בצ'אט)`;
       const photo = item.type === 'img' && item.photo
         ? `<div class="cart-item-photo"><img src="${item.photo}" alt=""></div>` : '';
@@ -793,23 +793,6 @@
       ? "שים לב: יש פריט עם תמונה — אחרי השליחה, צרף את התמונה באותו צ'אט וואטסאפ."
       : "ההזמנה תיפתח בוואטסאפ מוכנה לשליחה.";
     checkout.style.display = 'block';
-  }
-
-  function buildWaMessage() {
-    const name = document.getElementById('cust-name').value.trim();
-    const lines = ['*הזמנת הדפסה תלת-מימד* 🖨️'];
-    if (name) lines.push('שם: ' + name);
-    lines.push('');
-    cart.forEach((item, i) => {
-      const colorStr = item.colors.map(c => `${c.color} ×${c.qty}`).join(', ');
-      if (item.type === 'link') lines.push(`${i + 1}. ${item.link}`);
-      else                      lines.push(`${i + 1}. תמונה (אשלח בצ'אט)`);
-      lines.push(`   צבעים: ${colorStr}`);
-      if (item.note) lines.push(`   הערה: ${item.note}`);
-    });
-    lines.push('');
-    lines.push(`סה"כ: ${cartTotalUnits()} יחידות`);
-    return lines.join('\n');
   }
 
   function buildOrderUrl() {
@@ -864,7 +847,7 @@
         `<span class="chip"><span class="dot" style="background:${esc(c.hex || '#888')};"></span>${esc(c.color)} ×${c.qty}</span>`
       ).join('');
       const title = item.type === 'link'
-        ? `<a href="${esc(item.link)}" target="_blank">${esc(item.link)}</a>`
+        ? `<a href="${esc(safeHref(item.link))}" target="_blank">${esc(item.link)}</a>`
         : `📷 תמונה (יש לשלוח בצ'אט)`;
       return `
         <div class="cart-item">
@@ -894,7 +877,7 @@
       <div class="field">
         <label>פריט</label>
         <div class="color-label-cell">
-          <span class="cdot" style="background:${esc(colorHex)};"></span>
+          <span class="cdot" style="background:${safeHex(colorHex)};"></span>
           <input type="text" id="${id}-label" value="${esc(colorName)}" placeholder="שם">
         </div>
       </div>
@@ -919,7 +902,7 @@
         const short = item.link.replace(/^https?:\/\/(www\.)?/, '').split('#')[0];
         header.innerHTML = `
           <span style="color:var(--muted);font-size:11px;flex-shrink:0;">${idx + 1}.</span>
-          <a href="${esc(item.link)}" target="_blank" title="${esc(item.link)}">${esc(short)}</a>`;
+          <a href="${esc(safeHref(item.link))}" target="_blank" title="${esc(item.link)}">${esc(short)}</a>`;
       } else {
         header.innerHTML = `<span style="font-size:12px;">${idx + 1}. 📷 תמונה (יש לשלוח בצ'אט)</span>`;
       }
@@ -1137,6 +1120,13 @@
     if (!str) return '';
     return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
+  function safeHref(url) {
+    if (!url) return '#';
+    return /^https?:\/\//i.test(url.trim()) ? url.trim() : '#';
+  }
+  function safeHex(hex) {
+    return /^#[0-9a-fA-F]{3,6}$/.test(hex) ? hex : '#888888';
+  }
 
   // ══ INIT ══
   buildColorList();
@@ -1150,7 +1140,9 @@
       showOrderView(_od);
     } catch(e) {
       console.warn('[order] invalid param', e);
-      if (sessionStorage.getItem('admin_auth') === '1') showAdmin();
+      showCustomer();
+      document.querySelector('#customer-view header p').textContent =
+        '⚠️ קישור ההזמנה שגוי או פג תוקף — בקש מהאחיין לשלוח מחדש.';
     }
   } else if (sessionStorage.getItem('admin_auth') === '1') {
     showAdmin();
