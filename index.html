@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>הזמנת הדפסה תלת-מימד</title>
+  <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f0f0f;
+      --card: #1a1a1a;
+      --card2: #222;
+      --border: #2e2e2e;
+      --accent: #00c2ff;
+      --accent-dim: rgba(0,194,255,0.12);
+      --text: #f0f0f0;
+      --muted: #888;
+      --success: #3ecf8e;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+    }
+
+    body {
+      font-family: 'Rubik', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 24px 16px 60px;
+    }
+
+    .container { max-width: 560px; margin: 0 auto; }
+
+    header { text-align: center; margin-bottom: 32px; }
+    header h1 { font-size: 26px; font-weight: 700; margin-bottom: 6px; }
+    header p { color: var(--muted); font-size: 15px; }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 16px;
+    }
+    .card-title {
+      font-size: 13px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--accent);
+      margin-bottom: 20px;
+    }
+
+    /* ── FORM ── */
+    label { display: block; font-size: 14px; font-weight: 500; margin-bottom: 6px; }
+    .field { margin-bottom: 18px; }
+    input[type="text"], input[type="url"], input[type="number"],
+    input[type="password"], textarea {
+      width: 100%;
+      background: var(--card2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 15px;
+      padding: 12px 14px;
+      transition: border-color 0.2s;
+      outline: none;
+    }
+    input:focus, textarea:focus { border-color: var(--accent); }
+    textarea { resize: vertical; min-height: 80px; }
+
+    /* ── UPLOAD TOGGLE ── */
+    .input-toggle { display: flex; gap: 8px; margin-bottom: 12px; }
+    .toggle-btn {
+      flex: 1;
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      font-family: inherit;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .toggle-btn.active {
+      background: var(--accent-dim);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* ── IMAGE PREVIEW ── */
+    #img-preview { margin-top: 10px; display: none; }
+    #img-preview img {
+      width: 100%;
+      max-height: 180px;
+      object-fit: cover;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+    }
+
+    /* ── COLOR + QTY PICKER ── */
+    .color-list { display: flex; flex-direction: column; gap: 8px; }
+
+    .color-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      border-radius: 10px;
+      border: 2px solid var(--border);
+      background: var(--card2);
+      transition: all 0.15s;
+    }
+    .color-row.active {
+      border-color: var(--accent);
+      background: var(--accent-dim);
+    }
+
+    .color-label {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 15px;
+    }
+    .color-dot {
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      border: 1px solid rgba(255,255,255,0.15);
+    }
+
+    .qty-ctrl {
+      display: flex;
+      align-items: center;
+      gap: 0;
+    }
+    .qty-btn {
+      width: 32px; height: 32px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--text);
+      font-size: 18px;
+      line-height: 1;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.1s;
+      flex-shrink: 0;
+    }
+    .qty-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .qty-num {
+      min-width: 32px;
+      text-align: center;
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .qty-num.zero { color: var(--muted); }
+
+    /* ── BUTTON ── */
+    .btn {
+      width: 100%;
+      padding: 14px;
+      border-radius: 12px;
+      border: none;
+      font-family: inherit;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn-primary { background: var(--accent); color: #000; }
+    .btn-secondary {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 14px;
+      padding: 10px;
+    }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .btn-small { width: auto; padding: 6px 14px; font-size: 13px; border-radius: 8px; }
+
+    /* ── SUCCESS ── */
+    #success-view { display: none; text-align: center; padding: 40px 0; }
+    #success-view .check { font-size: 56px; margin-bottom: 16px; }
+    #success-view h2 { font-size: 22px; font-weight: 700; margin-bottom: 8px; }
+    #success-view p { color: var(--muted); line-height: 1.6; }
+
+    /* ── ADMIN LOGIN ── */
+    #admin-login-view { display: none; }
+    #admin-login-view .card { max-width: 360px; margin: 60px auto; }
+    .error-msg { color: var(--danger); font-size: 13px; margin-top: 8px; display: none; }
+
+    /* ── ADMIN ── */
+    #admin-view { display: none; }
+    .admin-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+    }
+    .admin-header h2 { font-size: 20px; font-weight: 700; }
+
+    .tabs { display: flex; gap: 8px; margin-bottom: 20px; }
+    .tab {
+      flex: 1;
+      padding: 8px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .tab.active {
+      background: var(--accent-dim);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    .badge-count {
+      background: var(--accent);
+      color: #000;
+      border-radius: 4px;
+      padding: 1px 6px;
+      font-size: 11px;
+      font-weight: 700;
+      margin-right: 4px;
+    }
+
+    /* ── ORDER CARD ── */
+    .order-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px;
+      margin-bottom: 12px;
+    }
+    .order-card.status-new    { border-right: 3px solid var(--accent); }
+    .order-card.status-quoted { border-right: 3px solid var(--warning); }
+    .order-card.status-done   { border-right: 3px solid var(--success); opacity: 0.6; }
+
+    .order-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 12px;
+    }
+    .order-name { font-weight: 600; font-size: 16px; }
+    .order-date { color: var(--muted); font-size: 12px; }
+
+    .order-meta { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+    .tag {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      background: var(--card2);
+      border: 1px solid var(--border);
+      font-size: 13px;
+    }
+    .tag .dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.2);
+    }
+    .tag-total {
+      background: var(--accent-dim);
+      border-color: var(--accent);
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .order-notes { color: var(--muted); font-size: 13px; margin-bottom: 12px; line-height: 1.5; }
+    .order-link a { color: var(--accent); font-size: 13px; text-decoration: none; word-break: break-all; }
+    .order-link a:hover { text-decoration: underline; }
+    .order-img { margin-bottom: 10px; }
+    .order-img img {
+      max-height: 140px;
+      width: 100%;
+      object-fit: cover;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+
+    /* ── CALC ── */
+    .calc-section {
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+    }
+    .calc-label {
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 10px;
+    }
+    .calc-inputs { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+    .calc-inputs .field { margin-bottom: 0; }
+    .calc-inputs label { font-size: 12px; color: var(--muted); }
+
+    .calc-result {
+      background: var(--card2);
+      border-radius: 10px;
+      padding: 14px;
+      display: none;
+    }
+    .calc-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+      padding: 4px 0;
+      color: var(--muted);
+    }
+    .calc-row.total {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--text);
+      border-top: 1px solid var(--border);
+      margin-top: 8px;
+      padding-top: 10px;
+    }
+    .calc-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+
+    /* ── STATUS BADGE ── */
+    .status-badge { font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 5px; }
+    .status-badge.new    { background: var(--accent-dim); color: var(--accent); }
+    .status-badge.quoted { background: rgba(245,158,11,0.15); color: var(--warning); }
+    .status-badge.done   { background: rgba(62,207,142,0.15); color: var(--success); }
+
+    /* ── SETTINGS ── */
+    .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .settings-grid .field { margin-bottom: 0; }
+    .settings-grid label { font-size: 12px; color: var(--muted); }
+
+    .admin-link { text-align: center; margin-top: 40px; }
+    .admin-link button {
+      background: none;
+      border: none;
+      color: #333;
+      font-size: 12px;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .admin-link button:hover { color: var(--muted); }
+
+    .empty-state { text-align: center; padding: 40px 0; color: var(--muted); }
+    .empty-state .icon { font-size: 40px; margin-bottom: 12px; }
+  </style>
+</head>
+<body>
+
+<!-- ═══════ CUSTOMER VIEW ═══════ -->
+<div id="customer-view" class="container">
+  <header>
+    <h1>🖨️ הזמן הדפסה</h1>
+    <p>תמלא את הטופס ואחזור אליך עם מחיר</p>
+  </header>
+
+  <div class="card">
+    <div class="card-title">פרטי ההזמנה</div>
+
+    <div class="field">
+      <label>שם (לא חובה)</label>
+      <input type="text" id="cust-name" placeholder="מי מזמין?">
+    </div>
+
+    <div class="field">
+      <label>מה להדפיס</label>
+      <div class="input-toggle">
+        <button class="toggle-btn active" id="toggle-link" onclick="switchInput('link')">קישור לאתר</button>
+        <button class="toggle-btn" id="toggle-img" onclick="switchInput('img')">תמונה / קובץ</button>
+      </div>
+      <div id="input-link">
+        <input type="url" id="cust-link" placeholder="https://makerworld.com/...">
+      </div>
+      <div id="input-img" style="display:none;">
+        <input type="file" id="cust-img" accept="image/*" onchange="previewImg(this)" style="padding:10px;">
+        <div id="img-preview"><img id="img-thumb" src="" alt="תצוגה מקדימה"></div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>צבע וכמות</label>
+      <div class="color-list" id="color-list"></div>
+    </div>
+
+    <div class="field">
+      <label>הערות</label>
+      <textarea id="cust-notes" placeholder="גודל מיוחד? משהו אחר?"></textarea>
+    </div>
+
+    <button class="btn btn-primary" onclick="submitOrder()">שלח הזמנה</button>
+    <p id="form-error" style="color:var(--danger); font-size:13px; margin-top:10px; display:none;"></p>
+  </div>
+
+  <div class="admin-link">
+    <button onclick="showAdminLogin()">כניסת מנהל</button>
+  </div>
+</div>
+
+<!-- ═══════ SUCCESS VIEW ═══════ -->
+<div id="success-view" class="container">
+  <div class="check">✅</div>
+  <h2>ההזמנה נשלחה!</h2>
+  <p>אחזור אליך עם מחיר בהקדם.<br>אפשר ליצור קשר בוואטסאפ אם דחוף.</p>
+  <br>
+  <button class="btn btn-secondary" onclick="resetForm()" style="max-width:240px; margin:0 auto; display:block;">הזמנה נוספת</button>
+</div>
+
+<!-- ═══════ ADMIN LOGIN ═══════ -->
+<div id="admin-login-view">
+  <div class="container">
+    <div class="card">
+      <div class="card-title">כניסת מנהל</div>
+      <div class="field">
+        <label>סיסמה</label>
+        <input type="password" id="admin-pass" placeholder="הכנס סיסמה" onkeydown="if(event.key==='Enter') adminLogin()">
+      </div>
+      <button class="btn btn-primary" onclick="adminLogin()">כניסה</button>
+      <p class="error-msg" id="pass-error">סיסמה שגויה</p>
+      <br>
+      <button class="btn btn-secondary" onclick="showCustomer()">חזרה</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ ADMIN VIEW ═══════ -->
+<div id="admin-view" class="container">
+  <div class="admin-header">
+    <h2>לוח הזמנות</h2>
+    <button class="btn btn-secondary btn-small" onclick="adminLogout()">יציאה</button>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" id="tab-orders" onclick="switchTab('orders')">
+      הזמנות <span class="badge-count" id="new-count" style="display:none;"></span>
+    </button>
+    <button class="tab" id="tab-settings" onclick="switchTab('settings')">הגדרות</button>
+  </div>
+
+  <div class="tab-content active" id="content-orders">
+    <div id="orders-list"></div>
+  </div>
+
+  <div class="tab-content" id="content-settings">
+    <div class="card">
+      <div class="card-title">הגדרות מחשבון מחיר</div>
+      <div class="settings-grid">
+        <div class="field">
+          <label>משקל סליל (גרם)</label>
+          <input type="number" id="s-spool-weight" value="1000">
+        </div>
+        <div class="field">
+          <label>מחיר סליל (₪)</label>
+          <input type="number" id="s-spool-price" value="60">
+        </div>
+        <div class="field">
+          <label>צריכת חשמל A1 (וואט)</label>
+          <input type="number" id="s-watts" value="100">
+        </div>
+        <div class="field">
+          <label>תעריף חשמל (₪/kWh)</label>
+          <input type="number" id="s-elec" value="0.63" step="0.01">
+        </div>
+        <div class="field">
+          <label>מעמ (%)</label>
+          <input type="number" id="s-vat" value="18">
+        </div>
+      </div>
+      <br>
+      <button class="btn btn-primary" onclick="saveSettings()">שמור הגדרות</button>
+    </div>
+
+    <div class="card" style="margin-top:16px;">
+      <div class="card-title" style="color:var(--danger);">אזור מסוכן</div>
+      <p style="color:var(--muted); font-size:13px; margin-bottom:16px;">מחיקת כל ההזמנות. לא ניתן לבטל.</p>
+      <button class="btn btn-danger btn-small" onclick="clearAllOrders()">מחק את כל ההזמנות</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ══ CONFIG ══
+  const ADMIN_PASS   = 'or3d';
+  const ORDERS_KEY   = '3d_orders';
+  const SETTINGS_KEY = '3d_settings';
+
+  const COLORS = [
+    { name: 'שחור',    hex: '#2a2a2a', border: '#555' },
+    { name: 'לבן',     hex: '#f0f0f0', border: '#ccc' },
+    { name: 'חום בהיר',hex: '#c4a77d', border: '' },
+    { name: 'אדום',    hex: '#e63946', border: '' },
+    { name: 'ירוק',    hex: '#2d9a5f', border: '' },
+    { name: 'אפור',    hex: '#8d99ae', border: '' },
+  ];
+
+  const DEFAULT_SETTINGS = {
+    spoolWeight: 1000, spoolPrice: 60,
+    avgWatts: 100, elecRate: 0.63, vat: 18
+  };
+
+  // ══ STATE ══
+  let inputMode = 'link';
+  let imgBase64 = '';
+  // colorQty: { 'שחור': 0, 'לבן': 2, ... }
+  const colorQty = {};
+  COLORS.forEach(c => { colorQty[c.name] = 0; });
+
+  // ══ STORAGE ══
+  const getOrders   = () => JSON.parse(localStorage.getItem(ORDERS_KEY) || '[]');
+  const saveOrders  = o  => localStorage.setItem(ORDERS_KEY, JSON.stringify(o));
+  const getSettings = ()  => ({ ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}') });
+  const saveSettingsData = s => localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
+
+  // ══ VIEWS ══
+  function showView(id) {
+    ['customer-view','success-view','admin-login-view','admin-view']
+      .forEach(v => document.getElementById(v).style.display = 'none');
+    document.getElementById(id).style.display = 'block';
+  }
+  function showCustomer()   { showView('customer-view'); }
+  function showAdminLogin() { showView('admin-login-view'); document.getElementById('admin-pass').focus(); }
+  function showAdmin()      { showView('admin-view'); renderOrders(); loadSettingsUI(); }
+
+  // ══ COLOR LIST BUILD ══
+  function buildColorList() {
+    const list = document.getElementById('color-list');
+    list.innerHTML = COLORS.map(c => `
+      <div class="color-row" id="crow-${c.name}">
+        <div class="color-label">
+          <span class="color-dot" style="background:${c.hex};${c.border ? ' border-color:'+c.border+';' : ''}"></span>
+          <span>PLA ${c.name}</span>
+        </div>
+        <div class="qty-ctrl">
+          <button class="qty-btn" onclick="adjustQty('${c.name}', -1)">−</button>
+          <div class="qty-num zero" id="qnum-${c.name}">0</div>
+          <button class="qty-btn" onclick="adjustQty('${c.name}', 1)">+</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function adjustQty(colorName, delta) {
+    colorQty[colorName] = Math.max(0, (colorQty[colorName] || 0) + delta);
+    const numEl = document.getElementById('qnum-' + colorName);
+    const rowEl = document.getElementById('crow-' + colorName);
+    numEl.textContent = colorQty[colorName];
+    numEl.className = 'qty-num' + (colorQty[colorName] === 0 ? ' zero' : '');
+    rowEl.classList.toggle('active', colorQty[colorName] > 0);
+  }
+
+  function getSelectedColors() {
+    return COLORS
+      .filter(c => colorQty[c.name] > 0)
+      .map(c => ({ color: c.name, qty: colorQty[c.name] }));
+  }
+
+  // ══ UPLOAD ══
+  function switchInput(mode) {
+    inputMode = mode;
+    document.getElementById('input-link').style.display = mode === 'link' ? 'block' : 'none';
+    document.getElementById('input-img').style.display  = mode === 'img'  ? 'block' : 'none';
+    document.getElementById('toggle-link').classList.toggle('active', mode === 'link');
+    document.getElementById('toggle-img').classList.toggle('active',  mode === 'img');
+  }
+
+  function previewImg(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      imgBase64 = e.target.result;
+      document.getElementById('img-thumb').src = imgBase64;
+      document.getElementById('img-preview').style.display = 'block';
+    };
+    reader.readAsDataURL(file);
+  }
+
+  // ══ SUBMIT ══
+  function submitOrder() {
+    const errEl = document.getElementById('form-error');
+    errEl.style.display = 'none';
+
+    const selected = getSelectedColors();
+    if (selected.length === 0) {
+      errEl.textContent = 'נא לבחור לפחות צבע אחד עם כמות';
+      errEl.style.display = 'block';
+      return;
+    }
+    const link = document.getElementById('cust-link').value.trim();
+    if (inputMode === 'link' && !link) {
+      errEl.textContent = 'נא להזין קישור';
+      errEl.style.display = 'block';
+      return;
+    }
+    if (inputMode === 'img' && !imgBase64) {
+      errEl.textContent = 'נא להעלות תמונה';
+      errEl.style.display = 'block';
+      return;
+    }
+
+    const totalUnits = selected.reduce((s, c) => s + c.qty, 0);
+    const order = {
+      id: Date.now().toString(),
+      name: document.getElementById('cust-name').value.trim() || 'אנונימי',
+      inputMode,
+      link: inputMode === 'link' ? link : '',
+      image: inputMode === 'img' ? imgBase64 : '',
+      colors: selected,
+      totalUnits,
+      notes: document.getElementById('cust-notes').value.trim(),
+      date: new Date().toISOString(),
+      status: 'new',
+      quote: null
+    };
+
+    try {
+      const orders = getOrders();
+      orders.unshift(order);
+      saveOrders(orders);
+    } catch(e) {
+      errEl.textContent = 'שגיאה בשמירה (ייתכן שהתמונה גדולה מדי)';
+      errEl.style.display = 'block';
+      return;
+    }
+
+    showView('success-view');
+  }
+
+  function resetForm() {
+    document.getElementById('cust-name').value  = '';
+    document.getElementById('cust-link').value  = '';
+    document.getElementById('cust-notes').value = '';
+    imgBase64 = '';
+    document.getElementById('img-preview').style.display = 'none';
+    document.getElementById('cust-img').value = '';
+    COLORS.forEach(c => { colorQty[c.name] = 0; });
+    buildColorList();
+    switchInput('link');
+    showCustomer();
+  }
+
+  // ══ ADMIN ══
+  function adminLogin() {
+    const pass = document.getElementById('admin-pass').value;
+    if (pass === ADMIN_PASS) {
+      document.getElementById('pass-error').style.display = 'none';
+      document.getElementById('admin-pass').value = '';
+      sessionStorage.setItem('admin_auth', '1');
+      showAdmin();
+    } else {
+      document.getElementById('pass-error').style.display = 'block';
+    }
+  }
+
+  function adminLogout() {
+    sessionStorage.removeItem('admin_auth');
+    showCustomer();
+  }
+
+  function switchTab(tab) {
+    ['orders','settings'].forEach(t => {
+      document.getElementById('tab-' + t).classList.toggle('active', t === tab);
+      document.getElementById('content-' + t).classList.toggle('active', t === tab);
+    });
+  }
+
+  // ══ RENDER ORDERS ══
+  function renderOrders() {
+    const orders = getOrders();
+    const newCount = orders.filter(o => o.status === 'new').length;
+    const countEl = document.getElementById('new-count');
+    countEl.textContent = newCount;
+    countEl.style.display = newCount > 0 ? 'inline' : 'none';
+
+    const list = document.getElementById('orders-list');
+    if (orders.length === 0) {
+      list.innerHTML = `<div class="empty-state"><div class="icon">📭</div><p>אין הזמנות עדיין</p></div>`;
+      return;
+    }
+    list.innerHTML = orders.map(orderHTML).join('');
+  }
+
+  const COLOR_HEX = {};
+  COLORS.forEach(c => { COLOR_HEX[c.name] = c.hex; });
+
+  const STATUS_LABELS = { new: 'חדשה', quoted: 'הוצעה', done: 'הושלמה' };
+
+  function orderHTML(o) {
+    const dateStr = new Date(o.date).toLocaleDateString('he-IL', {
+      day: 'numeric', month: 'short', year: 'numeric',
+      hour: '2-digit', minute: '2-digit'
+    });
+
+    const colorTags = (o.colors || [{ color: o.color, qty: 1 }]).map(c => `
+      <div class="tag">
+        <span class="dot" style="background:${COLOR_HEX[c.color] || '#888'};"></span>
+        ${esc(c.color)} × ${c.qty}
+      </div>
+    `).join('');
+
+    const totalUnits = o.totalUnits || (o.colors ? o.colors.reduce((s,c) => s + c.qty, 0) : 1);
+
+    return `
+    <div class="order-card status-${o.status}" id="card-${o.id}">
+      <div class="order-header">
+        <div>
+          <div class="order-name">${esc(o.name)}</div>
+          <div class="order-date">${dateStr}</div>
+        </div>
+        <span class="status-badge ${o.status}">${STATUS_LABELS[o.status]}</span>
+      </div>
+
+      <div class="order-meta">
+        ${colorTags}
+        <div class="tag tag-total">סה"כ ${totalUnits} יח'</div>
+      </div>
+
+      ${o.notes ? `<div class="order-notes">💬 ${esc(o.notes)}</div>` : ''}
+      ${o.inputMode === 'link' ? `<div class="order-link" style="margin-bottom:10px;">🔗 <a href="${esc(o.link)}" target="_blank">${esc(o.link)}</a></div>` : ''}
+      ${o.inputMode === 'img' && o.image ? `<div class="order-img"><img src="${o.image}" alt="תמונת הזמנה"></div>` : ''}
+
+      ${o.quote ? `
+        <div style="margin-top:10px; padding:10px 14px; background:rgba(62,207,142,0.1); border-radius:8px; font-size:13px;">
+          <strong>הצעת מחיר: ₪${o.quote.total.toFixed(2)}</strong>
+          <span style="color:var(--muted); margin-right:8px;">(${totalUnits} יח' × ₪${o.quote.perUnit.toFixed(2)})</span>
+        </div>
+      ` : ''}
+
+      <div class="calc-section">
+        <div class="calc-label">מחשבון מחיר — לפי יחידה</div>
+        <div class="calc-inputs">
+          <div class="field">
+            <label>משקל/יח' (גרם)</label>
+            <input type="number" id="w-${o.id}" placeholder="25" min="1">
+          </div>
+          <div class="field">
+            <label>זמן/יח' (שעות)</label>
+            <input type="number" id="t-${o.id}" placeholder="2.5" step="0.5" min="0.5">
+          </div>
+          <div class="field">
+            <label>יחידות</label>
+            <input type="number" id="u-${o.id}" value="${totalUnits}" min="1">
+          </div>
+        </div>
+        <button class="btn btn-secondary btn-small" onclick="calcPrice('${o.id}')">חשב מחיר</button>
+
+        <div class="calc-result" id="result-${o.id}">
+          <div class="calc-row"><span>חומר/יח'</span><span id="r-mat-${o.id}"></span></div>
+          <div class="calc-row"><span>חשמל/יח'</span><span id="r-elec-${o.id}"></span></div>
+          <div class="calc-row"><span>× <span id="r-units-${o.id}"></span> יחידות</span><span id="r-sub-${o.id}"></span></div>
+          <div class="calc-row"><span>מעמ 18%</span><span id="r-vat-${o.id}"></span></div>
+          <div class="calc-row total"><span>סה"כ</span><span id="r-total-${o.id}"></span></div>
+        </div>
+
+        <div class="calc-actions">
+          <button class="btn btn-secondary btn-small" onclick="setStatus('${o.id}','quoted')">סמן "הוצעה"</button>
+          <button class="btn btn-secondary btn-small" onclick="setStatus('${o.id}','done')">סמן "הושלמה"</button>
+          <button class="btn btn-secondary btn-small" style="color:var(--danger);border-color:var(--danger);" onclick="deleteOrder('${o.id}')">מחק</button>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  function calcPrice(id) {
+    const weight = parseFloat(document.getElementById('w-' + id).value);
+    const time   = parseFloat(document.getElementById('t-' + id).value);
+    const units  = parseInt(document.getElementById('u-' + id).value) || 1;
+
+    if (!weight || !time || weight <= 0 || time <= 0) {
+      alert('הזן משקל וזמן תקינים');
+      return;
+    }
+
+    const s = getSettings();
+    const matCost  = (weight / s.spoolWeight) * s.spoolPrice;
+    const elecCost = (time * s.avgWatts / 1000) * s.elecRate;
+    const perUnit  = matCost + elecCost;
+    const subtotal = perUnit * units;
+    const vatAmt   = subtotal * (s.vat / 100);
+    const total    = subtotal + vatAmt;
+
+    document.getElementById('r-mat-'  + id).textContent = '₪' + matCost.toFixed(2);
+    document.getElementById('r-elec-' + id).textContent = '₪' + elecCost.toFixed(2);
+    document.getElementById('r-units-'+ id).textContent = units;
+    document.getElementById('r-sub-'  + id).textContent = '₪' + subtotal.toFixed(2);
+    document.getElementById('r-vat-'  + id).textContent = '₪' + vatAmt.toFixed(2);
+    document.getElementById('r-total-'+ id).textContent = '₪' + total.toFixed(2);
+    document.getElementById('result-' + id).style.display = 'block';
+
+    const orders = getOrders();
+    const idx = orders.findIndex(o => o.id === id);
+    if (idx !== -1) {
+      orders[idx].quote = { matCost, elecCost, perUnit, subtotal, vatAmt, total };
+      saveOrders(orders);
+    }
+  }
+
+  function setStatus(id, status) {
+    const orders = getOrders();
+    const idx = orders.findIndex(o => o.id === id);
+    if (idx !== -1) { orders[idx].status = status; saveOrders(orders); renderOrders(); }
+  }
+
+  function deleteOrder(id) {
+    if (!confirm('למחוק את ההזמנה הזו?')) return;
+    saveOrders(getOrders().filter(o => o.id !== id));
+    renderOrders();
+  }
+
+  function clearAllOrders() {
+    if (!confirm('למחוק את כל ההזמנות? פעולה זו לא ניתנת לביטול.')) return;
+    saveOrders([]);
+    renderOrders();
+  }
+
+  // ══ SETTINGS ══
+  function loadSettingsUI() {
+    const s = getSettings();
+    document.getElementById('s-spool-weight').value = s.spoolWeight;
+    document.getElementById('s-spool-price').value  = s.spoolPrice;
+    document.getElementById('s-watts').value        = s.avgWatts;
+    document.getElementById('s-elec').value         = s.elecRate;
+    document.getElementById('s-vat').value          = s.vat;
+  }
+
+  function saveSettings() {
+    saveSettingsData({
+      spoolWeight: parseFloat(document.getElementById('s-spool-weight').value),
+      spoolPrice:  parseFloat(document.getElementById('s-spool-price').value),
+      avgWatts:    parseFloat(document.getElementById('s-watts').value),
+      elecRate:    parseFloat(document.getElementById('s-elec').value),
+      vat:         parseFloat(document.getElementById('s-vat').value),
+    });
+    alert('ההגדרות נשמרו');
+  }
+
+  // ══ UTILS ══
+  function esc(str) {
+    if (!str) return '';
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // ══ INIT ══
+  buildColorList();
+  if (sessionStorage.getItem('admin_auth') === '1') showAdmin();
+</script>
+</body>
+</html>
