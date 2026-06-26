@@ -343,9 +343,33 @@
 <div id="success-view" class="container">
   <div class="check">✅</div>
   <h2>מעולה!</h2>
-  <p>נפתח לך וואטסאפ עם ההזמנה.<br>רק תלחץ שליחה ואחזור אליך עם מחיר.</p>
+  <p>נפתח לך וואטסאפ עם קישור להזמנה.<br>לחץ שליחה — אחזור אליך עם מחיר 🎯</p>
   <br>
   <button class="btn btn-secondary" onclick="newOrder()" style="max-width:240px; margin:0 auto;">הזמנה חדשה</button>
+</div>
+
+<!-- ═══════ ORDER VIEW (incoming order - for Or) ═══════ -->
+<div id="order-view" class="container" style="display:none;">
+  <header>
+    <h1>📦 הזמנה נכנסת</h1>
+    <p>מאת: <strong id="order-from-name"></strong></p>
+  </header>
+
+  <div class="card">
+    <div class="card-title">פריטים</div>
+    <div id="order-items-list"></div>
+    <div class="cart-summary">
+      <span>סה"כ יחידות</span>
+      <span id="order-total-units">0</span>
+    </div>
+  </div>
+
+  <button class="btn btn-primary" onclick="openCalcFromOrder()" style="margin-bottom:10px;">
+    🧮 פתח במחשבון
+  </button>
+  <p style="color:var(--muted); font-size:13px; text-align:center; line-height:1.5;">
+    תצטרך להזין משקל וזמן הדפסה לכל פריט
+  </p>
 </div>
 
 <!-- ═══════ ADMIN LOGIN ═══════ -->
@@ -489,6 +513,7 @@
   let imgBase64 = '';
   let cart = [];          // [{ id, type, link, photo, colors:[{color,qty}], note }]
   let lastQuote = null;   // for copy/save
+  let pendingOrder = null; // decoded from ?o= URL param
 
   // ══ STORAGE ══
   const getHistory  = () => JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
@@ -497,7 +522,7 @@
 
   // ══ VIEWS ══
   function showView(id) {
-    ['customer-view','success-view','admin-login-view','admin-view']
+    ['customer-view','success-view','admin-login-view','admin-view','order-view']
       .forEach(v => document.getElementById(v).style.display = 'none');
     document.getElementById(id).style.display = 'block';
     window.scrollTo(0, 0);
@@ -760,10 +785,29 @@
     return lines.join('\n');
   }
 
+  function buildOrderUrl() {
+    const name = document.getElementById('cust-name').value.trim();
+    const orderData = {
+      name,
+      items: cart.map(i => ({
+        type: i.type,
+        link: i.link,
+        colors: i.colors.map(c => ({ color: c.color, qty: c.qty, hex: COLOR_HEX[c.color] || '#888' })),
+        note: i.note
+      })),
+      ts: Date.now()
+    };
+    const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(orderData))));
+    return location.origin + location.pathname + '?o=' + encoded;
+  }
+
   function sendWhatsApp() {
     if (cart.length === 0) return;
-    const url = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(buildWaMessage())}`;
-    window.open(url, '_blank');
+    const name = document.getElementById('cust-name').value.trim();
+    const orderUrl = buildOrderUrl();
+    const greeting = name ? `היי אור, זה ${name}!` : 'היי אור!';
+    const waText = `${greeting} הכנתי הזמנת הדפסה 🖨️\nלחץ כאן לצפייה וחישוב מחיר:\n${orderUrl}`;
+    window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(waText)}`, '_blank');
     showView('success-view');
   }
 
@@ -774,6 +818,63 @@
     showCustomer();
   }
 
+  // ══ ORDER LINK (incoming order view) ══
+  function showOrderView(orderData) {
+    pendingOrder = orderData;
+    showView('order-view');
+    document.getElementById('order-from-name').textContent = orderData.name || 'לקוח';
+    const totalUnits = (orderData.items || []).reduce((s, i) =>
+      s + (i.colors || []).reduce((a, c) => a + (c.qty || 0), 0), 0);
+    document.getElementById('order-total-units').textContent = totalUnits;
+
+    const list = document.getElementById('order-items-list');
+    if (!orderData.items || orderData.items.length === 0) {
+      list.innerHTML = '<div class="cart-empty">הזמנה ריקה</div>';
+      return;
+    }
+    list.innerHTML = orderData.items.map((item, i) => {
+      const colorChips = (item.colors || []).map(c =>
+        `<span class="chip"><span class="dot" style="background:${esc(c.hex || '#888')};"></span>${esc(c.color)} ×${c.qty}</span>`
+      ).join('');
+      const title = item.type === 'link'
+        ? `<a href="${esc(item.link)}" target="_blank">${esc(item.link)}</a>`
+        : `📷 תמונה (יש לשלוח בצ'אט)`;
+      return `
+        <div class="cart-item">
+          <div class="cart-item-head"><div class="cart-item-title">${i + 1}. ${title}</div></div>
+          <div class="cart-colors">${colorChips}</div>
+          ${item.note ? `<div class="cart-item-note">💬 ${esc(item.note)}</div>` : ''}
+        </div>`;
+    }).join('');
+  }
+
+  function openCalcFromOrder() {
+    if (sessionStorage.getItem('admin_auth') === '1') {
+      showAdmin();
+      switchTab('calc');
+      loadOrderIntoCalc(pendingOrder);
+    } else {
+      showAdminLogin();
+    }
+  }
+
+  function loadOrderIntoCalc(orderData) {
+    if (!orderData) return;
+    document.getElementById('calc-rows').innerHTML = '';
+    calcRowId = 0;
+    document.getElementById('calc-name').value = orderData.name || '';
+    (orderData.items || []).forEach((item, idx) => {
+      const baseLabel = item.type === 'link'
+        ? item.link.replace(/^https?:\/\/(www\.)?/, '').split('#')[0].slice(0, 40)
+        : `תמונה ${idx + 1}`;
+      (item.colors || []).forEach(c => {
+        addCalcRow(`${baseLabel} — ${c.color}`, c.qty);
+      });
+    });
+    document.getElementById('calc-result').style.display = 'none';
+    toast(`הזמנה של ${orderData.name || 'לקוח'} נטענה — הזן משקל וזמן לכל פריט`);
+  }
+
   // ══ ADMIN AUTH ══
   function adminLogin() {
     if (document.getElementById('admin-pass').value === ADMIN_PASS) {
@@ -781,6 +882,10 @@
       document.getElementById('admin-pass').value = '';
       sessionStorage.setItem('admin_auth', '1');
       showAdmin();
+      if (pendingOrder) {
+        switchTab('calc');
+        loadOrderIntoCalc(pendingOrder);
+      }
     } else {
       document.getElementById('pass-error').style.display = 'block';
     }
@@ -796,16 +901,16 @@
 
   // ══ CALCULATOR (multi-line) ══
   let calcRowId = 0;
-  function addCalcRow(label) {
+  function addCalcRow(label, qty) {
     const id = 'cr' + (calcRowId++);
     const div = document.createElement('div');
     div.className = 'calc-row-item';
     div.id = id;
     div.innerHTML = `
-      <div class="field"><label>פריט</label><input type="text" id="${id}-label" placeholder="${esc(label || 'שם / תיאור')}"></div>
+      <div class="field"><label>פריט</label><input type="text" id="${id}-label" value="${esc(label || '')}" placeholder="שם / תיאור"></div>
       <div class="field"><label>משקל (גרם)</label><input type="number" id="${id}-w" placeholder="25" min="0"></div>
       <div class="field"><label>זמן (שעות)</label><input type="number" id="${id}-t" placeholder="2.5" step="0.5" min="0"></div>
-      <div class="field"><label>כמות</label><input type="number" id="${id}-u" value="1" min="1"></div>
+      <div class="field"><label>כמות</label><input type="number" id="${id}-u" value="${qty || 1}" min="1"></div>
       <button class="row-del" onclick="delCalcRow('${id}')" title="הסר">×</button>`;
     document.getElementById('calc-rows').appendChild(div);
   }
@@ -978,7 +1083,19 @@
   buildColorList();
   renderCart();
   loadColors();
-  if (sessionStorage.getItem('admin_auth') === '1') showAdmin();
+  const _urlP = new URLSearchParams(location.search);
+  const _orderParam = _urlP.get('o');
+  if (_orderParam) {
+    try {
+      const _od = JSON.parse(decodeURIComponent(escape(atob(_orderParam))));
+      showOrderView(_od);
+    } catch(e) {
+      console.warn('[order] invalid param', e);
+      if (sessionStorage.getItem('admin_auth') === '1') showAdmin();
+    }
+  } else if (sessionStorage.getItem('admin_auth') === '1') {
+    showAdmin();
+  }
 </script>
 </body>
 </html>
