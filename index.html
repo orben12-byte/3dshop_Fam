@@ -233,6 +233,33 @@
       font-size: 12px; padding: 5px 8px; cursor: pointer;
     }
 
+    /* ── CALC ORDER ROWS ── */
+    .calc-link-header {
+      display: flex; align-items: center; gap: 8px;
+      padding: 7px 12px; background: var(--card2);
+      border: 1px solid var(--border); border-radius: 8px;
+      margin-bottom: 6px; overflow: hidden;
+    }
+    .calc-link-header a {
+      color: var(--accent); text-decoration: none; flex: 1;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      font-size: 12px; direction: ltr; text-align: left;
+    }
+    .calc-link-header a:hover { text-decoration: underline; }
+    .color-label-cell {
+      display: flex; align-items: center; gap: 8px;
+      background: var(--card2); border: 1px solid var(--border);
+      border-radius: 10px; padding: 0 12px; height: 42px;
+    }
+    .color-label-cell .cdot {
+      width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0;
+      border: 1px solid rgba(255,255,255,0.2);
+    }
+    .color-label-cell input {
+      background: transparent; border: none; padding: 0;
+      flex: 1; color: var(--text); font-size: 14px; font-family: inherit;
+    }
+
     /* ── COLOR MANAGER ── */
     .cm-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
     .cm-row input[type="color"] {
@@ -858,21 +885,53 @@
     }
   }
 
+  function addOrderCalcRow(colorName, colorHex, qty) {
+    const id = 'cr' + (calcRowId++);
+    const div = document.createElement('div');
+    div.className = 'calc-row-item';
+    div.id = id;
+    div.innerHTML = `
+      <div class="field">
+        <label>פריט</label>
+        <div class="color-label-cell">
+          <span class="cdot" style="background:${esc(colorHex)};"></span>
+          <input type="text" id="${id}-label" value="${esc(colorName)}" placeholder="שם">
+        </div>
+      </div>
+      <div class="field"><label>משקל (גרם)</label><input type="number" id="${id}-w" placeholder="25" min="0"></div>
+      <div class="field"><label>זמן (שעות)</label><input type="number" id="${id}-t" placeholder="2.5" step="0.5" min="0"></div>
+      <div class="field"><label>כמות</label><input type="number" id="${id}-u" value="${qty || 1}" min="1"></div>
+      <button class="row-del" onclick="delCalcRow('${id}')" title="הסר">×</button>`;
+    document.getElementById('calc-rows').appendChild(div);
+  }
+
   function loadOrderIntoCalc(orderData) {
     if (!orderData) return;
-    document.getElementById('calc-rows').innerHTML = '';
+    const container = document.getElementById('calc-rows');
+    container.innerHTML = '';
     calcRowId = 0;
     document.getElementById('calc-name').value = orderData.name || '';
+
     (orderData.items || []).forEach((item, idx) => {
-      const baseLabel = item.type === 'link'
-        ? item.link.replace(/^https?:\/\/(www\.)?/, '').split('#')[0].slice(0, 40)
-        : `תמונה ${idx + 1}`;
+      const header = document.createElement('div');
+      header.className = 'calc-link-header';
+      if (item.type === 'link') {
+        const short = item.link.replace(/^https?:\/\/(www\.)?/, '').split('#')[0];
+        header.innerHTML = `
+          <span style="color:var(--muted);font-size:11px;flex-shrink:0;">${idx + 1}.</span>
+          <a href="${esc(item.link)}" target="_blank" title="${esc(item.link)}">${esc(short)}</a>`;
+      } else {
+        header.innerHTML = `<span style="font-size:12px;">${idx + 1}. 📷 תמונה (יש לשלוח בצ'אט)</span>`;
+      }
+      container.appendChild(header);
+
       (item.colors || []).forEach(c => {
-        addCalcRow(`${baseLabel} — ${c.color}`, c.qty);
+        addOrderCalcRow(c.color, c.hex || '#888', c.qty);
       });
     });
+
     document.getElementById('calc-result').style.display = 'none';
-    toast(`הזמנה של ${orderData.name || 'לקוח'} נטענה — הזן משקל וזמן לכל פריט`);
+    toast(`הזמנה של ${orderData.name || 'לקוח'} נטענה — הזן משקל וזמן לכל שורה`);
   }
 
   // ══ ADMIN AUTH ══
