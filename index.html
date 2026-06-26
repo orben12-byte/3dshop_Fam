@@ -233,6 +233,14 @@
       font-size: 12px; padding: 5px 8px; cursor: pointer;
     }
 
+    /* ── COLOR MANAGER ── */
+    .cm-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+    .cm-row input[type="color"] {
+      width: 46px; height: 40px; padding: 2px; flex-shrink: 0;
+      background: var(--card2); border: 1px solid var(--border); border-radius: 8px; cursor: pointer;
+    }
+    .cm-row .cm-name { flex: 1; }
+
     .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .settings-grid .field { margin-bottom: 0; }
     .settings-grid label { font-size: 12px; color: var(--muted); }
@@ -365,8 +373,9 @@
   </div>
 
   <div class="tabs">
-    <button class="tab active" id="tab-calc"     onclick="switchTab('calc')">מחשבון הצעה</button>
+    <button class="tab active" id="tab-calc"     onclick="switchTab('calc')">מחשבון</button>
     <button class="tab"        id="tab-history"  onclick="switchTab('history')">היסטוריה</button>
+    <button class="tab"        id="tab-colors"   onclick="switchTab('colors')">צבעים</button>
     <button class="tab"        id="tab-settings" onclick="switchTab('settings')">הגדרות</button>
   </div>
 
@@ -405,6 +414,18 @@
     <div id="history-list"></div>
   </div>
 
+  <!-- COLORS TAB -->
+  <div class="tab-content" id="content-colors">
+    <div class="card">
+      <div class="card-title">מלאי צבעים <span id="cloud-status" style="font-weight:500; text-transform:none; letter-spacing:0;"></span></div>
+      <p style="color:var(--muted); font-size:13px; margin-bottom:14px; line-height:1.5;">הצבעים שהאחיין יכול לבחור. עדכן כאן כשנגמר או נוסף צבע. לחיצה על הריבוע הצבעוני בוחרת גוון.</p>
+      <div id="color-manager"></div>
+      <button class="btn btn-secondary btn-small" onclick="addColorRow()" style="margin-bottom:14px;">+ הוסף צבע</button>
+      <button class="btn btn-primary" onclick="saveColors()">שמור ופרסם</button>
+      <p id="colors-hint" style="color:var(--muted); font-size:12px; margin-top:10px; line-height:1.5;"></p>
+    </div>
+  </div>
+
   <!-- SETTINGS TAB -->
   <div class="tab-content" id="content-settings">
     <div class="card">
@@ -437,21 +458,26 @@
      ─────────────────────────────────────────────────────────── */
   const WHATSAPP_NUMBER = '972542500312';  // ← המספר שלך בפורמט בינלאומי, בלי + ובלי 0 בהתחלה. דוגמה: 0501234567 → 972501234567
   const ADMIN_PASS      = 'or3d';           // ← הסיסמה לכניסת מנהל. שנה למה שתרצה.
+  const JSONBIN_BIN_ID  = '';               // ← מזהה ה-bin מ-jsonbin.io (תקבל אחרי ההגדרה). בלעדיו הצבעים מקומיים בלבד.
+  const JSONBIN_KEY     = '';               // ← ה-Access Key מ-jsonbin.io.
   /* ═══════════════════════════════════════════════════════════ */
 
   const HISTORY_KEY  = '3d_history';
   const SETTINGS_KEY = '3d_settings';
+  const COLORS_CACHE = '3d_colors_cache';
 
-  const COLORS = [
-    { name: 'שחור',    hex: '#2a2a2a', border: '#555' },
-    { name: 'לבן',     hex: '#f0f0f0', border: '#ccc' },
-    { name: 'חום בהיר',hex: '#c4a77d', border: '' },
-    { name: 'אדום',    hex: '#e63946', border: '' },
-    { name: 'ירוק',    hex: '#2d9a5f', border: '' },
-    { name: 'אפור',    hex: '#8d99ae', border: '' },
+  const DEFAULT_COLORS = [
+    { name: 'שחור',     hex: '#2a2a2a' },
+    { name: 'לבן',      hex: '#f0f0f0' },
+    { name: 'חום בהיר', hex: '#c4a77d' },
+    { name: 'אדום',     hex: '#e63946' },
+    { name: 'ירוק',     hex: '#2d9a5f' },
+    { name: 'אפור',     hex: '#8d99ae' },
   ];
+  let colors = DEFAULT_COLORS.slice();
   const COLOR_HEX = {};
-  COLORS.forEach(c => { COLOR_HEX[c.name] = c.hex; });
+  const colorQty  = {};
+  colors.forEach(c => { COLOR_HEX[c.name] = c.hex; colorQty[c.name] = 0; });
 
   const DEFAULT_SETTINGS = {
     spoolWeight: 1000, spoolPrice: 60,
@@ -461,8 +487,6 @@
   // ══ STATE ══
   let inputMode = 'link';
   let imgBase64 = '';
-  const colorQty = {};
-  COLORS.forEach(c => { colorQty[c.name] = 0; });
   let cart = [];          // [{ id, type, link, photo, colors:[{color,qty}], note }]
   let lastQuote = null;   // for copy/save
 
@@ -480,7 +504,7 @@
   }
   function showCustomer()   { showView('customer-view'); }
   function showAdminLogin() { showView('admin-login-view'); document.getElementById('admin-pass').focus(); }
-  function showAdmin()      { showView('admin-view'); renderHistory(); loadSettingsUI(); if (document.querySelectorAll('#calc-rows .calc-row-item').length === 0) addCalcRow(); }
+  function showAdmin()      { showView('admin-view'); renderHistory(); loadSettingsUI(); renderColorManager(); updateCloudStatus(); if (document.querySelectorAll('#calc-rows .calc-row-item').length === 0) addCalcRow(); }
 
   function toast(msg) {
     const t = document.getElementById('toast');
@@ -489,34 +513,124 @@
     setTimeout(() => t.classList.remove('show'), 2200);
   }
 
-  // ══ COLOR PICKER ══
+  // ══ COLOR PICKER (customer) ══
   function buildColorList() {
-    document.getElementById('color-list').innerHTML = COLORS.map(c => `
-      <div class="color-row" id="crow-${c.name}">
+    document.getElementById('color-list').innerHTML = colors.map((c, i) => {
+      const q = colorQty[c.name] || 0;
+      return `
+      <div class="color-row${q > 0 ? ' active' : ''}" id="crow-${i}">
         <div class="color-label">
-          <span class="color-dot" style="background:${c.hex};${c.border ? ' border-color:'+c.border+';' : ''}"></span>
-          <span>PLA ${c.name}</span>
+          <span class="color-dot" style="background:${c.hex};"></span>
+          <span>PLA ${esc(c.name)}</span>
         </div>
         <div class="qty-ctrl">
-          <button class="qty-btn" onclick="adjustQty('${c.name}', -1)">−</button>
-          <div class="qty-num zero" id="qnum-${c.name}">0</div>
-          <button class="qty-btn" onclick="adjustQty('${c.name}', 1)">+</button>
+          <button class="qty-btn" onclick="adjustQty(${i}, -1)">−</button>
+          <div class="qty-num${q === 0 ? ' zero' : ''}" id="qnum-${i}">${q}</div>
+          <button class="qty-btn" onclick="adjustQty(${i}, 1)">+</button>
         </div>
-      </div>`).join('');
+      </div>`;
+    }).join('');
   }
-  function adjustQty(name, delta) {
+  function adjustQty(i, delta) {
+    const name = colors[i].name;
     colorQty[name] = Math.max(0, (colorQty[name] || 0) + delta);
-    const numEl = document.getElementById('qnum-' + name);
+    const numEl = document.getElementById('qnum-' + i);
     numEl.textContent = colorQty[name];
     numEl.className = 'qty-num' + (colorQty[name] === 0 ? ' zero' : '');
-    document.getElementById('crow-' + name).classList.toggle('active', colorQty[name] > 0);
+    document.getElementById('crow-' + i).classList.toggle('active', colorQty[name] > 0);
   }
   function getSelectedColors() {
-    return COLORS.filter(c => colorQty[c.name] > 0).map(c => ({ color: c.name, qty: colorQty[c.name] }));
+    return colors.filter(c => colorQty[c.name] > 0).map(c => ({ color: c.name, qty: colorQty[c.name] }));
   }
   function resetColors() {
-    COLORS.forEach(c => { colorQty[c.name] = 0; });
+    colors.forEach(c => { colorQty[c.name] = 0; });
     buildColorList();
+  }
+  function rebuildColorState() {
+    for (const k in COLOR_HEX) delete COLOR_HEX[k];
+    const prev = { ...colorQty };
+    for (const k in colorQty) delete colorQty[k];
+    colors.forEach(c => { COLOR_HEX[c.name] = c.hex; colorQty[c.name] = prev[c.name] || 0; });
+    buildColorList();
+    renderCart();
+  }
+
+  // ══ COLOR INVENTORY — cloud (jsonbin) ══
+  const cloudOn = () => !!(JSONBIN_BIN_ID && JSONBIN_KEY);
+
+  async function loadColors() {
+    const cached = JSON.parse(localStorage.getItem(COLORS_CACHE) || 'null');
+    if (Array.isArray(cached) && cached.length) { colors = cached; rebuildColorState(); }
+    if (!cloudOn()) return;
+    try {
+      const res = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`, {
+        headers: { 'X-Access-Key': JSONBIN_KEY }
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      const list = data && data.record && data.record.colors;
+      if (Array.isArray(list) && list.length) {
+        colors = list;
+        localStorage.setItem(COLORS_CACHE, JSON.stringify(colors));
+        rebuildColorState();
+      }
+    } catch (e) { console.warn('[colors] cloud load failed', e); }
+  }
+
+  // ══ COLOR MANAGER (admin) ══
+  function renderColorManager() {
+    document.getElementById('color-manager').innerHTML = colors.map((c, i) => `
+      <div class="cm-row">
+        <input type="color" class="cm-hex" value="${c.hex}">
+        <input type="text" class="cm-name" value="${esc(c.name)}" placeholder="שם הצבע">
+        <button class="row-del" onclick="removeColorRow(${i})" title="הסר">×</button>
+      </div>`).join('');
+  }
+  function readColorsFromUI() {
+    return Array.from(document.querySelectorAll('#color-manager .cm-row')).map(r => ({
+      name: r.querySelector('.cm-name').value.trim(),
+      hex:  r.querySelector('.cm-hex').value
+    }));
+  }
+  function addColorRow() {
+    colors = readColorsFromUI();
+    colors.push({ name: '', hex: '#888888' });
+    renderColorManager();
+  }
+  function removeColorRow(i) {
+    colors = readColorsFromUI();
+    colors.splice(i, 1);
+    renderColorManager();
+  }
+  async function saveColors() {
+    const arr = readColorsFromUI().filter(c => c.name);
+    if (arr.length === 0) { alert('צריך לפחות צבע אחד עם שם'); return; }
+    colors = arr;
+    localStorage.setItem(COLORS_CACHE, JSON.stringify(colors));
+    rebuildColorState();
+    renderColorManager();
+    if (!cloudOn()) { toast('נשמר מקומית — הענן עדיין לא מחובר'); return; }
+    try {
+      const res = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'X-Access-Key': JSONBIN_KEY },
+        body: JSON.stringify({ colors })
+      });
+      toast(res.ok ? 'נשמר ופורסם — האחיין רואה את העדכון' : 'שגיאה בפרסום (קוד ' + res.status + ')');
+    } catch (e) { toast('אין חיבור לענן — נשמר מקומית בלבד'); }
+  }
+  function updateCloudStatus() {
+    const el = document.getElementById('cloud-status');
+    const hint = document.getElementById('colors-hint');
+    if (el) {
+      el.textContent = cloudOn() ? '☁ מחובר' : '⚠ לא מחובר לענן';
+      el.style.color = cloudOn() ? 'var(--success)' : 'var(--warning)';
+    }
+    if (hint) {
+      hint.textContent = cloudOn()
+        ? 'שינויים מתפרסמים מיד וגלויים לאחיין.'
+        : 'כדי שהאחיין יראה שינויים צריך לחבר את jsonbin (בקש מאדם). כרגע השינויים מקומיים בלבד.';
+    }
   }
 
   // ══ INPUT TOGGLE ══
@@ -674,7 +788,7 @@
   function adminLogout() { sessionStorage.removeItem('admin_auth'); showCustomer(); }
 
   function switchTab(tab) {
-    ['calc','history','settings'].forEach(t => {
+    ['calc','history','colors','settings'].forEach(t => {
       document.getElementById('tab-' + t).classList.toggle('active', t === tab);
       document.getElementById('content-' + t).classList.toggle('active', t === tab);
     });
@@ -863,6 +977,7 @@
   // ══ INIT ══
   buildColorList();
   renderCart();
+  loadColors();
   if (sessionStorage.getItem('admin_auth') === '1') showAdmin();
 </script>
 </body>
