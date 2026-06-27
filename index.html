@@ -290,6 +290,88 @@
     }
     .toast.show { opacity: 1; }
 
+    /* ── GALLERY ── */
+    .gallery-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+    }
+    .gallery-card {
+      background: var(--card2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .gallery-card img {
+      width: 100%;
+      aspect-ratio: 1;
+      object-fit: cover;
+      display: block;
+    }
+    .gallery-card-name {
+      padding: 8px 10px 6px;
+      font-size: 13px;
+      font-weight: 500;
+    }
+    .gallery-card-btn {
+      display: block;
+      width: 100%;
+      background: none;
+      border: none;
+      border-top: 1px solid var(--border);
+      color: var(--accent);
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 9px;
+      cursor: pointer;
+      transition: background 0.15s;
+      min-height: 40px;
+    }
+    .gallery-card-btn:hover, .gallery-card-btn:focus-visible {
+      background: var(--accent-dim); outline: none;
+    }
+
+    /* ── CATALOG MODAL ── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.65);
+      z-index: 200;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+    }
+    .modal-sheet {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 20px 20px 0 0;
+      padding: 20px 20px 36px;
+      width: 100%;
+      max-width: 560px;
+      max-height: 92vh;
+      overflow-y: auto;
+      animation: slideUp 0.22s ease;
+    }
+    @keyframes slideUp {
+      from { transform: translateY(100%); opacity: 0; }
+      to   { transform: translateY(0);    opacity: 1; }
+    }
+    .modal-handle {
+      width: 36px; height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      margin: 0 auto 18px;
+    }
+    .modal-head {
+      display: flex; align-items: center; gap: 12px; margin-bottom: 18px;
+    }
+    .modal-head img {
+      width: 54px; height: 54px; object-fit: cover;
+      border-radius: 10px; border: 1px solid var(--border); flex-shrink: 0;
+    }
+    .modal-head-name { font-size: 17px; font-weight: 700; }
+
     /* ── ACCESSIBILITY ── */
     .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
     .tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -311,6 +393,12 @@
     <h1>🖨️ הזמן הדפסה</h1>
     <p>הוסף מה שאתה רוצה לעגלה ושלח לי בוואטסאפ</p>
   </header>
+
+  <!-- GALLERY -->
+  <div class="card" id="gallery-card" style="display:none;">
+    <div class="card-title">בחר מהקטלוג</div>
+    <div class="gallery-grid" id="gallery-grid"></div>
+  </div>
 
   <!-- ADD PRODUCT -->
   <div class="card">
@@ -507,6 +595,27 @@
   </div>
 </div>
 
+<!-- CATALOG MODAL -->
+<div id="catalog-modal" class="modal-overlay" style="display:none;" onclick="closeCatalogModal(event)">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-head">
+      <img id="modal-img" src="" alt="">
+      <div class="modal-head-name" id="modal-name"></div>
+    </div>
+    <div class="field">
+      <label>צבע וכמות</label>
+      <div class="color-list" id="modal-color-list"></div>
+    </div>
+    <div class="field">
+      <label>הערה (לא חובה)</label>
+      <input type="text" id="modal-note" placeholder="גודל? צבע מיוחד?">
+    </div>
+    <p id="modal-error" role="alert" style="color:var(--danger); font-size:13px; margin-bottom:10px; display:none;"></p>
+    <button class="btn btn-primary" onclick="addCatalogToCart()">+ הוסף לעגלה</button>
+  </div>
+</div>
+
 <div class="toast" id="toast" aria-live="polite"></div>
 
 <script>
@@ -517,6 +626,19 @@
   const ADMIN_PASS      = 'or3d';           // ← הסיסמה לכניסת מנהל. שנה למה שתרצה.
   const JSONBIN_BIN_ID  = '';               // ← מזהה ה-bin מ-jsonbin.io (תקבל אחרי ההגדרה). בלעדיו הצבעים מקומיים בלבד.
   const JSONBIN_KEY     = '';               // ← ה-Access Key מ-jsonbin.io.
+
+  const CATALOG = [
+    { name: 'Articulated Shark',               image: 'prints/Articulated Shark_1C_1.3H_21G.jpg',                     grams: 21,   hours: 1.3  },
+    { name: 'Cubone Pokemon Skull Keychain',   image: 'prints/Cubone Pokemon Skull Keychain_1C_1.5H_20G.jpg',         grams: 20,   hours: 1.5  },
+    { name: 'Dust Bunny Keychain',             image: 'prints/Dust Bunny Keychain_2C_30M_5G.jpg',                     grams: 5,    hours: 0.5  },
+    { name: 'Finger Gear Slider — Fidget Toy', image: 'prints/Finger Gear Slider — Fidget Toy_1C_1.6H_27G.jpg',       grams: 27,   hours: 1.6  },
+    { name: 'Flexi Cat',                       image: 'prints/Flexi Cat_C1_42M_12G.jpg',                              grams: 12,   hours: 0.7  },
+    { name: 'Flexi Gecko',                     image: 'prints/Flexi Gecko_2C_1.5H_21G.jpg',                           grams: 21,   hours: 1.5  },
+    { name: 'Google Pixel Dinosaur Keychain',  image: 'prints/google pixel dinosaur keychain_1C_13M_6G.jpg',          grams: 6,    hours: 0.22 },
+    { name: 'Low Poly Heart Keychain',         image: 'prints/Low poly heart keychain_1C_1.5H_5.5G.jpg',              grams: 5.5,  hours: 1.5  },
+    { name: 'Minecraft Creeper Keychain',      image: 'prints/Minecraft Creeper Keychain_2C_19M_6G.jpg',              grams: 6,    hours: 0.32 },
+    { name: 'Minecraft Tulip Pot',             image: 'prints/Minecraft Tulip Pot_3C_3.5H_83G.jpg',                   grams: 83,   hours: 3.5  },
+  ];
   /* ═══════════════════════════════════════════════════════════ */
 
   const HISTORY_KEY  = '3d_history';
@@ -776,11 +898,17 @@
       const colorChips = item.colors.map(c => `
         <span class="chip"><span class="dot" style="background:${COLOR_HEX[c.color]};"></span>${c.color} ×${c.qty}</span>
       `).join('');
-      const title = item.type === 'link'
-        ? `<a href="${esc(safeHref(item.link))}" target="_blank">${esc(item.link)}</a>`
-        : `📷 תמונה (תישלח בצ'אט)`;
-      const photo = item.type === 'img' && item.photo
-        ? `<div class="cart-item-photo"><img src="${item.photo}" alt=""></div>` : '';
+      let title, photo;
+      if (item.type === 'catalog') {
+        title = `🖨️ ${esc(item.name)}`;
+        photo = item.photo ? `<div class="cart-item-photo"><img src="${esc(item.photo)}" alt="${esc(item.name)}"></div>` : '';
+      } else if (item.type === 'link') {
+        title = `<a href="${esc(safeHref(item.link))}" target="_blank">${esc(item.link)}</a>`;
+        photo = '';
+      } else {
+        title = `📷 תמונה (תישלח בצ'אט)`;
+        photo = item.photo ? `<div class="cart-item-photo"><img src="${item.photo}" alt=""></div>` : '';
+      }
       return `
         <div class="cart-item">
           <div class="cart-item-head">
@@ -807,6 +935,9 @@
       name,
       items: cart.map(i => ({
         type: i.type,
+        name: i.name || undefined,
+        grams: i.grams || undefined,
+        hours: i.hours || undefined,
         link: i.link,
         colors: i.colors.map(c => ({ color: c.color, qty: c.qty, hex: COLOR_HEX[c.color] || '#888' })),
         note: i.note
@@ -852,9 +983,11 @@
       const colorChips = (item.colors || []).map(c =>
         `<span class="chip"><span class="dot" style="background:${esc(c.hex || '#888')};"></span>${esc(c.color)} ×${c.qty}</span>`
       ).join('');
-      const title = item.type === 'link'
-        ? `<a href="${esc(safeHref(item.link))}" target="_blank">${esc(item.link)}</a>`
-        : `📷 תמונה (יש לשלוח בצ'אט)`;
+      const title = item.type === 'catalog'
+        ? `🖨️ ${esc(item.name || 'פריט מהקטלוג')}`
+        : item.type === 'link'
+          ? `<a href="${esc(safeHref(item.link))}" target="_blank">${esc(item.link)}</a>`
+          : `📷 תמונה (יש לשלוח בצ'אט)`;
       return `
         <div class="cart-item">
           <div class="cart-item-head"><div class="cart-item-title">${i + 1}. ${title}</div></div>
@@ -874,7 +1007,7 @@
     }
   }
 
-  function addOrderCalcRow(colorName, colorHex, qty) {
+  function addOrderCalcRow(colorName, colorHex, qty, grams, hours) {
     const id = 'cr' + (calcRowId++);
     const div = document.createElement('div');
     div.className = 'calc-row-item';
@@ -887,8 +1020,8 @@
           <input type="text" id="${id}-label" value="${esc(colorName)}" placeholder="שם">
         </div>
       </div>
-      <div class="field"><label>משקל (גרם)</label><input type="number" id="${id}-w" placeholder="25" min="0"></div>
-      <div class="field"><label>זמן (שעות)</label><input type="number" id="${id}-t" placeholder="2.5" step="0.5" min="0"></div>
+      <div class="field"><label>משקל (גרם)</label><input type="number" id="${id}-w" value="${grams || ''}" placeholder="25" min="0"></div>
+      <div class="field"><label>זמן (שעות)</label><input type="number" id="${id}-t" value="${hours || ''}" placeholder="2.5" step="0.5" min="0"></div>
       <div class="field"><label>כמות</label><input type="number" id="${id}-u" value="${qty || 1}" min="1"></div>
       <button class="row-del" onclick="delCalcRow('${id}')" title="הסר">×</button>`;
     document.getElementById('calc-rows').appendChild(div);
@@ -904,7 +1037,9 @@
     (orderData.items || []).forEach((item, idx) => {
       const header = document.createElement('div');
       header.className = 'calc-link-header';
-      if (item.type === 'link') {
+      if (item.type === 'catalog') {
+        header.innerHTML = `<span style="font-size:12px;">${idx + 1}. 🖨️ ${esc(item.name || 'פריט מהקטלוג')}</span>`;
+      } else if (item.type === 'link') {
         const short = item.link.replace(/^https?:\/\/(www\.)?/, '').split('#')[0];
         header.innerHTML = `
           <span style="color:var(--muted);font-size:11px;flex-shrink:0;">${idx + 1}.</span>
@@ -915,12 +1050,108 @@
       container.appendChild(header);
 
       (item.colors || []).forEach(c => {
-        addOrderCalcRow(c.color, c.hex || '#888', c.qty);
+        addOrderCalcRow(c.color, c.hex || '#888', c.qty, item.grams, item.hours);
       });
     });
 
     document.getElementById('calc-result').style.display = 'none';
     toast(`הזמנה של ${orderData.name || 'לקוח'} נטענה — הזן משקל וזמן לכל שורה`);
+  }
+
+  // ══ CATALOG GALLERY ══
+  let modalColorQty = {};
+  let modalCatalogIdx = -1;
+
+  function renderGallery() {
+    const grid = document.getElementById('gallery-grid');
+    const card = document.getElementById('gallery-card');
+    if (!CATALOG.length) return;
+    card.style.display = '';
+    grid.innerHTML = CATALOG.map((item, i) => `
+      <div class="gallery-card">
+        <img src="${esc(item.image)}" alt="${esc(item.name)}" loading="lazy">
+        <div class="gallery-card-name">${esc(item.name)}</div>
+        <button class="gallery-card-btn" onclick="openCatalogItem(${i})">+ הוסף להזמנה</button>
+      </div>
+    `).join('');
+  }
+
+  function openCatalogItem(idx) {
+    const item = CATALOG[idx];
+    if (!item) return;
+    modalCatalogIdx = idx;
+    modalColorQty = {};
+    colors.forEach(c => { modalColorQty[c.name] = 0; });
+    document.getElementById('modal-img').src = item.image;
+    document.getElementById('modal-img').alt = item.name;
+    document.getElementById('modal-name').textContent = item.name;
+    document.getElementById('modal-note').value = '';
+    document.getElementById('modal-error').style.display = 'none';
+    buildModalColorList();
+    document.getElementById('catalog-modal').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+  }
+
+  function buildModalColorList() {
+    document.getElementById('modal-color-list').innerHTML = colors.map((c, i) => {
+      const q = modalColorQty[c.name] || 0;
+      return `
+      <div class="color-row${q > 0 ? ' active' : ''}" id="mcrow-${i}">
+        <div class="color-label">
+          <span class="color-dot" style="background:${c.hex};"></span>
+          <span>PLA ${esc(c.name)}</span>
+        </div>
+        <div class="qty-ctrl">
+          <button class="qty-btn" onclick="adjustModalQty(${i},-1)" aria-label="הפחת">−</button>
+          <div class="qty-num${q === 0 ? ' zero' : ''}" id="mqnum-${i}">${q}</div>
+          <button class="qty-btn" onclick="adjustModalQty(${i},1)" aria-label="הוסף">+</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function adjustModalQty(i, delta) {
+    const name = colors[i].name;
+    modalColorQty[name] = Math.max(0, (modalColorQty[name] || 0) + delta);
+    const numEl = document.getElementById('mqnum-' + i);
+    numEl.textContent = modalColorQty[name];
+    numEl.className = 'qty-num' + (modalColorQty[name] === 0 ? ' zero' : '');
+    document.getElementById('mcrow-' + i).classList.toggle('active', modalColorQty[name] > 0);
+  }
+
+  function closeCatalogModal(e) {
+    if (e && e.target.id !== 'catalog-modal') return;
+    _closeCatalogModal();
+  }
+  function _closeCatalogModal() {
+    document.getElementById('catalog-modal').style.display = 'none';
+    document.body.style.overflow = '';
+  }
+
+  function addCatalogToCart() {
+    const errEl = document.getElementById('modal-error');
+    errEl.style.display = 'none';
+    const selected = colors.filter(c => modalColorQty[c.name] > 0)
+      .map(c => ({ color: c.name, qty: modalColorQty[c.name] }));
+    if (!selected.length) {
+      errEl.textContent = 'נא לבחור לפחות צבע אחד עם כמות';
+      errEl.style.display = 'block'; return;
+    }
+    const item = CATALOG[modalCatalogIdx];
+    cart.push({
+      id: Date.now().toString(),
+      type: 'catalog',
+      name: item.name,
+      photo: item.image,
+      link: '',
+      grams: item.grams,
+      hours: item.hours,
+      colors: selected,
+      note: document.getElementById('modal-note').value.trim()
+    });
+    _closeCatalogModal();
+    renderCart();
+    toast('נוסף לעגלה ✓');
   }
 
   // ══ ADMIN AUTH ══
@@ -1137,6 +1368,7 @@
   // ══ INIT ══
   buildColorList();
   renderCart();
+  renderGallery();
   loadColors();
   const _urlP = new URLSearchParams(location.search);
   const _orderParam = _urlP.get('o');
