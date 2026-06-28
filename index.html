@@ -678,6 +678,7 @@
 
   // ══ VIEWS ══
   function showView(id) {
+    document.body.style.overflow = '';
     ['customer-view','success-view','admin-login-view','admin-view','order-view']
       .forEach(v => document.getElementById(v).style.display = 'none');
     document.getElementById(id).style.display = 'block';
@@ -839,8 +840,8 @@
     const errEl = document.getElementById('add-error');
     errEl.style.display = 'none';
 
-    const colors = getSelectedColors();
-    if (colors.length === 0) {
+    const selectedColors = getSelectedColors();
+    if (selectedColors.length === 0) {
       errEl.textContent = 'נא לבחור לפחות צבע אחד עם כמות';
       errEl.style.display = 'block'; return;
     }
@@ -857,7 +858,7 @@
       type: inputMode,
       link: inputMode === 'link' ? link : '',
       photo: inputMode === 'img' ? imgBase64 : '',
-      colors,
+      colors: selectedColors,
       note: document.getElementById('prod-note').value.trim()
     });
 
@@ -937,8 +938,8 @@
       items: cart.map(i => ({
         type: i.type,
         name: i.name || undefined,
-        grams: i.grams || undefined,
-        hours: i.hours || undefined,
+        grams: i.grams != null ? i.grams : undefined,
+        hours: i.hours != null ? i.hours : undefined,
         link: i.link,
         colors: i.colors.map(c => ({ color: c.color, qty: c.qty, hex: COLOR_HEX[c.color] || '#888' })),
         note: i.note
