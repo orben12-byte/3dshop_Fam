@@ -301,7 +301,10 @@
       border: 1px solid var(--border);
       border-radius: 12px;
       overflow: hidden;
+      cursor: pointer;
+      transition: border-color 0.15s;
     }
+    .gallery-card:hover { border-color: var(--accent); }
     .gallery-card img {
       width: 100%;
       aspect-ratio: 1;
@@ -1082,11 +1085,11 @@
       `<span class="gallery-swatch" style="background:${c.hex};" title="${esc(c.name)}"></span>`
     ).join('');
     grid.innerHTML = CATALOG.map((item, i) => `
-      <div class="gallery-card">
+      <div class="gallery-card" onclick="openCatalogItem(${i})">
         <img src="${esc(item.image)}" alt="${esc(item.name)}" loading="lazy">
         <div class="gallery-card-name">${esc(item.name)}</div>
         <div class="gallery-card-swatches">${swatches}</div>
-        <button class="gallery-card-btn" onclick="openCatalogItem(${i})">+ הוסף להזמנה</button>
+        <div class="gallery-card-btn">+ הוסף להזמנה</div>
       </div>
     `).join('');
   }
