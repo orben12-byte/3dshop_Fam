@@ -309,9 +309,17 @@
       display: block;
     }
     .gallery-card-name {
-      padding: 8px 10px 6px;
+      padding: 8px 10px 4px;
       font-size: 13px;
       font-weight: 500;
+    }
+    .gallery-card-swatches {
+      display: flex; flex-wrap: wrap; gap: 4px;
+      padding: 4px 10px 8px;
+    }
+    .gallery-swatch {
+      width: 10px; height: 10px; border-radius: 50%;
+      border: 1px solid rgba(0,0,0,0.18); flex-shrink: 0;
     }
     .gallery-card-btn {
       display: block;
@@ -735,6 +743,7 @@
     colors.forEach(c => { COLOR_HEX[c.name] = c.hex; colorQty[c.name] = prev[c.name] || 0; });
     buildColorList();
     renderCart();
+    renderGallery();
   }
 
   // ══ COLOR INVENTORY — cloud (jsonbin) ══
@@ -1069,10 +1078,14 @@
     const card = document.getElementById('gallery-card');
     if (!CATALOG.length) return;
     card.style.display = '';
+    const swatches = colors.map(c =>
+      `<span class="gallery-swatch" style="background:${c.hex};" title="${esc(c.name)}"></span>`
+    ).join('');
     grid.innerHTML = CATALOG.map((item, i) => `
       <div class="gallery-card">
         <img src="${esc(item.image)}" alt="${esc(item.name)}" loading="lazy">
         <div class="gallery-card-name">${esc(item.name)}</div>
+        <div class="gallery-card-swatches">${swatches}</div>
         <button class="gallery-card-btn" onclick="openCatalogItem(${i})">+ הוסף להזמנה</button>
       </div>
     `).join('');
